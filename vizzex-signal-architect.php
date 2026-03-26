@@ -2,8 +2,8 @@
 /**
  * Plugin Name: VizzEx Signal Architect
  * Plugin URI:  https://vizzex.com
- * Description: Automatically wraps H2–H6 headings and their content in semantic &lt;section&gt; tags with aria-labels, creating structured "signal architecture" for AI search engines and citation systems.
- * Version:     1.0.0
+ * Description: Full-spectrum AI signal architecture: wraps content in &lt;article&gt;, sections headings with aria-labels, injects freshness &lt;time&gt; signals, auto-wraps images in &lt;figure&gt;/&lt;figcaption&gt;, provides E-E-A-T author footers, and offers an [aside] shortcode — all to maximize AI search citation confidence.
+ * Version:     1.1.0
  * Author:      VizzEx
  * Author URI:  https://vizzex.com
  * License:     GPL-2.0-or-later
@@ -20,8 +20,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * 1. CONSTANTS
  * ============================================================
  */
-define( 'VIZZEX_SA_VERSION', '1.0.0' );
+define( 'VIZZEX_SA_VERSION', '1.1.0' );
 define( 'VIZZEX_SA_OPTION_POST_TYPES', 'vizzex_sa_enabled_post_types' );
+define( 'VIZZEX_SA_OPTION_FEATURES', 'vizzex_sa_feature_toggles' );
 define( 'VIZZEX_SA_META_KEY', '_vizzex_sa_enabled' );
 
 /**
@@ -33,6 +34,15 @@ function vizzex_sa_activate() {
     // Default: only "post" is enabled out of the box.
     if ( false === get_option( VIZZEX_SA_OPTION_POST_TYPES ) ) {
         update_option( VIZZEX_SA_OPTION_POST_TYPES, array( 'post' ) );
+    }
+    // Default feature toggles — all on by default.
+    if ( false === get_option( VIZZEX_SA_OPTION_FEATURES ) ) {
+        update_option( VIZZEX_SA_OPTION_FEATURES, array(
+            'header_time'   => '1', // <header> with <time> freshness signals
+            'footer_eeat'   => '1', // <footer> with author E-E-A-T
+            'figure_wrap'   => '1', // Auto-wrap bare <img> in <figure>/<figcaption>
+            'aside_shortcode' => '1', // [aside] shortcode
+        ) );
     }
 }
 register_activation_hook( __FILE__, 'vizzex_sa_activate' );
@@ -67,6 +77,20 @@ function vizzex_sa_register_settings() {
             'default'           => array( 'post' ),
         )
     );
+    register_setting(
+        'vizzex_sa_settings_group',
+        VIZZEX_SA_OPTION_FEATURES,
+        array(
+            'type'              => 'array',
+            'sanitize_callback' => 'vizzex_sa_sanitize_features',
+            'default'           => array(
+                'header_time'     => '1',
+                'footer_eeat'     => '1',
+                'figure_wrap'     => '1',
+                'aside_shortcode' => '1',
+            ),
+        )
+    );
 }
 add_action( 'admin_init', 'vizzex_sa_register_settings' );
 
@@ -79,7 +103,20 @@ function vizzex_sa_sanitize_post_types( $input ) {
     return array_values( array_intersect( $input, $valid ) );
 }
 
-/** 3d. Render the settings page. */
+/** 3d. Sanitise feature toggles. */
+function vizzex_sa_sanitize_features( $input ) {
+    if ( ! is_array( $input ) ) {
+        return array();
+    }
+    $valid_keys = array( 'header_time', 'footer_eeat', 'figure_wrap', 'aside_shortcode' );
+    $clean      = array();
+    foreach ( $valid_keys as $key ) {
+        $clean[ $key ] = ! empty( $input[ $key ] ) ? '1' : '';
+    }
+    return $clean;
+}
+
+/** 3e. Render the settings page. */
 function vizzex_sa_render_settings_page() {
     if ( ! current_user_can( 'manage_options' ) ) {
         return;
@@ -129,6 +166,61 @@ function vizzex_sa_render_settings_page() {
                         </p>
                     </td>
                 </tr>
+            </table>
+
+            <h2 style="margin-top:2em;"><?php esc_html_e( 'Signal Booster Features', 'vizzex-signal-architect' ); ?></h2>
+            <p style="max-width:720px;">
+                <?php esc_html_e(
+                    'Enable or disable individual signal booster features. These enhance the core '
+                    . '<article> and <section> architecture with additional semantic HTML5 signals.',
+                    'vizzex-signal-architect'
+                ); ?>
+            </p>
+
+            <?php
+            $features = (array) get_option( VIZZEX_SA_OPTION_FEATURES, array(
+                'header_time'     => '1',
+                'footer_eeat'     => '1',
+                'figure_wrap'     => '1',
+                'aside_shortcode' => '1',
+            ) );
+            $feature_labels = array(
+                'header_time'     => array(
+                    'label' => __( 'Freshness Signals (<header> + <time>)', 'vizzex-signal-architect' ),
+                    'desc'  => __( 'Injects a <header> block with <time> tags for the published and last-modified dates inside the <article> envelope.', 'vizzex-signal-architect' ),
+                ),
+                'footer_eeat'     => array(
+                    'label' => __( 'Author E-E-A-T Footer (<footer>)', 'vizzex-signal-architect' ),
+                    'desc'  => __( 'Appends a <footer> inside the <article> with author name, credentials, and bio. Pulls from VizzEx Pro author entities when available, falls back to WordPress user data.', 'vizzex-signal-architect' ),
+                ),
+                'figure_wrap'     => array(
+                    'label' => __( 'Auto Figure Wrapping (<figure> + <figcaption>)', 'vizzex-signal-architect' ),
+                    'desc'  => __( 'Automatically wraps bare <img> tags (not already inside a <figure>) in <figure> with a <figcaption> derived from the alt text.', 'vizzex-signal-architect' ),
+                ),
+                'aside_shortcode' => array(
+                    'label' => __( '[aside] Shortcode', 'vizzex-signal-architect' ),
+                    'desc'  => __( 'Registers a [aside] shortcode that wraps content in a semantic <aside> tag for secondary context that won\'t dilute the main section vector.', 'vizzex-signal-architect' ),
+                ),
+            );
+            ?>
+            <table class="form-table" role="presentation">
+                <?php foreach ( $feature_labels as $key => $info ) : ?>
+                    <tr>
+                        <th scope="row"><?php echo esc_html( $info['label'] ); ?></th>
+                        <td>
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    name="<?php echo esc_attr( VIZZEX_SA_OPTION_FEATURES ); ?>[<?php echo esc_attr( $key ); ?>]"
+                                    value="1"
+                                    <?php checked( ! empty( $features[ $key ] ) ); ?>
+                                />
+                                <?php esc_html_e( 'Enabled', 'vizzex-signal-architect' ); ?>
+                            </label>
+                            <p class="description"><?php echo esc_html( $info['desc'] ); ?></p>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
             </table>
 
             <?php submit_button( __( 'Save Changes', 'vizzex-signal-architect' ) ); ?>
@@ -245,20 +337,189 @@ add_action( 'save_post', 'vizzex_sa_save_meta' );
 
 /**
  * ============================================================
- * 5. THE AUTO-SECTIONER — The core content filter
+ * 5. SIGNAL BOOSTER HELPERS
+ * ============================================================
+ */
+
+/** Helper: Check if a signal booster feature is enabled globally. */
+function vizzex_sa_feature_enabled( $feature_key ) {
+    $features = (array) get_option( VIZZEX_SA_OPTION_FEATURES, array(
+        'header_time'     => '1',
+        'footer_eeat'     => '1',
+        'figure_wrap'     => '1',
+        'aside_shortcode' => '1',
+    ) );
+    return ! empty( $features[ $feature_key ] );
+}
+
+/**
+ * 5a. FRESHNESS SIGNALS — <header> with <time> tags.
+ *
+ * Builds a <header> block containing the post's published and
+ * last-modified dates as <time datetime="..."> elements.
+ * Placed at the top of the <article> envelope.
+ */
+function vizzex_sa_build_header_time() {
+    $pub_iso      = get_the_date( 'c' );
+    $pub_display  = get_the_date();
+    $mod_iso      = get_the_modified_date( 'c' );
+    $mod_display  = get_the_modified_date();
+
+    $header  = '<header class="vizzex-freshness-signals">' . "\n";
+    $header .= '  <time datetime="' . esc_attr( $pub_iso ) . '" itemprop="datePublished">Published: ' . esc_html( $pub_display ) . '</time>' . "\n";
+
+    // Only show modified date if it differs from published date.
+    if ( get_the_date( 'Y-m-d' ) !== get_the_modified_date( 'Y-m-d' ) ) {
+        $header .= '  <time datetime="' . esc_attr( $mod_iso ) . '" itemprop="dateModified">Updated: ' . esc_html( $mod_display ) . '</time>' . "\n";
+    }
+
+    $header .= '</header>' . "\n";
+
+    return $header;
+}
+
+/**
+ * 5b. AUTHOR E-E-A-T FOOTER — <footer> with author credentials.
+ *
+ * Pulls author data from VizzEx Pro's author entities (vzx_schema_settings)
+ * when available, otherwise falls back to WordPress native author meta.
+ * Placed at the bottom of the <article> envelope, after the last <section>.
+ */
+function vizzex_sa_build_footer_eeat() {
+    $post_author_id    = get_the_author_meta( 'ID' );
+    $post_author_login = get_the_author_meta( 'user_login' );
+
+    // Defaults from WordPress native.
+    $author_name  = get_the_author_meta( 'display_name' );
+    $author_title = '';
+    $author_bio   = get_the_author_meta( 'description' );
+    $author_url   = get_author_posts_url( $post_author_id );
+
+    // Attempt to pull richer data from VizzEx Pro author entities.
+    $vzx_settings = get_option( 'vzx_schema_settings', array() );
+    if ( ! empty( $vzx_settings['authors'] ) && is_array( $vzx_settings['authors'] ) ) {
+        foreach ( $vzx_settings['authors'] as $entity ) {
+            $wp_ids = isset( $entity['wp_user_ids'] ) ? (array) $entity['wp_user_ids'] : array();
+            // Match on user_login (string) or user ID (int).
+            if ( in_array( $post_author_login, $wp_ids, true ) || in_array( $post_author_id, $wp_ids ) || in_array( (string) $post_author_id, $wp_ids, true ) ) {
+                $author_name  = ! empty( $entity['name'] )        ? $entity['name']        : $author_name;
+                $author_title = ! empty( $entity['job_title'] )   ? $entity['job_title']   : '';
+                $author_bio   = ! empty( $entity['description'] ) ? $entity['description'] : $author_bio;
+                $author_url   = ! empty( $entity['url'] )         ? $entity['url']         : $author_url;
+                break;
+            }
+        }
+    }
+
+    $footer  = '<footer class="vizzex-author-authority">' . "\n";
+    $footer .= '  <p class="vizzex-author-name">';
+    $footer .= 'Written by: <a href="' . esc_url( $author_url ) . '" rel="author">' . esc_html( $author_name ) . '</a>';
+    if ( $author_title ) {
+        $footer .= ' — ' . esc_html( $author_title );
+    }
+    $footer .= '</p>' . "\n";
+
+    if ( $author_bio ) {
+        $footer .= '  <p class="vizzex-author-bio">' . esc_html( $author_bio ) . '</p>' . "\n";
+    }
+
+    $footer .= '</footer>' . "\n";
+
+    return $footer;
+}
+
+/**
+ * 5c. AUTO FIGURE WRAPPING — Wrap bare <img> tags in <figure>/<figcaption>.
+ *
+ * Finds <img> tags that are NOT already inside a <figure> element and wraps
+ * them in <figure> with a <figcaption> derived from the image's alt text.
+ * Skips images that already have a caption or are inside a figure.
+ */
+function vizzex_sa_auto_figure_wrap( $content ) {
+    // Match <img> tags that are NOT preceded by <figure (with possible attributes).
+    // We use a callback to check context and wrap appropriately.
+    return preg_replace_callback(
+        '/<img\s[^>]*>/is',
+        function ( $match ) use ( $content ) {
+            $img_tag = $match[0];
+
+            // Get the position of this img in the content.
+            $pos = strpos( $content, $img_tag );
+
+            // Check if this <img> is already inside a <figure> tag.
+            // Look backwards from the img position for an unclosed <figure>.
+            $before = substr( $content, 0, $pos );
+            $figure_open  = substr_count( strtolower( $before ), '<figure' );
+            $figure_close = substr_count( strtolower( $before ), '</figure' );
+            if ( $figure_open > $figure_close ) {
+                // Already inside a <figure> — leave it alone.
+                return $img_tag;
+            }
+
+            // Extract alt text for the figcaption.
+            $alt = '';
+            if ( preg_match( '/alt=["\']([^"\']*)["\']/', $img_tag, $alt_match ) ) {
+                $alt = trim( $alt_match[1] );
+            }
+
+            $output  = '<figure class="vizzex-figure">' . "\n";
+            $output .= '  ' . $img_tag . "\n";
+            if ( $alt ) {
+                $output .= '  <figcaption>' . esc_html( $alt ) . '</figcaption>' . "\n";
+            }
+            $output .= '</figure>';
+
+            return $output;
+        },
+        $content
+    );
+}
+
+/**
+ * 5d. [aside] SHORTCODE — Semantic secondary context.
+ *
+ * Usage: [aside]Your bonus tip or definition here.[/aside]
+ * Outputs: <aside class="vizzex-secondary-context">...</aside>
+ */
+function vizzex_sa_aside_shortcode( $atts, $content = null ) {
+    if ( is_null( $content ) ) {
+        return '';
+    }
+    return '<aside class="vizzex-secondary-context">' . "\n"
+        . do_shortcode( $content ) . "\n"
+        . '</aside>';
+}
+// Register the shortcode if the feature is enabled.
+// Note: Shortcode registration runs early, so we check on init.
+function vizzex_sa_register_shortcodes() {
+    if ( vizzex_sa_feature_enabled( 'aside_shortcode' ) ) {
+        add_shortcode( 'aside', 'vizzex_sa_aside_shortcode' );
+    }
+}
+add_action( 'init', 'vizzex_sa_register_shortcodes' );
+
+/**
+ * ============================================================
+ * 6. THE AUTO-SECTIONER — The core content filter
  * ============================================================
  *
- * Strategy: "Flat Sibling" approach with a "Global Envelope."
+ * Strategy: "Full-Spectrum" AI Signal Architecture.
  *
  * 1. The entire post is wrapped in an <article class="vizzex-knowledge-object">
  *    tag — the hard boundary that tells AI crawlers this is a complete,
  *    self-contained Knowledge Object.
  *
- * 2. Every H2–H6 starts a new <section> at the same nesting level.
+ * 2. A <header> with <time> tags provides freshness signals (published + modified).
+ *
+ * 3. Bare <img> tags are auto-wrapped in <figure>/<figcaption> for multimodal context.
+ *
+ * 4. Every H2–H6 starts a new <section> at the same nesting level.
  *    This keeps the markup flat and prevents a "closing tag waterfall."
  *    Each section gets:
  *      - aria-label  = the heading text (stripped of inner HTML)
  *      - class       = "semantic-unit unit-h{level}"
+ *
+ * 5. A <footer> with author E-E-A-T data anchors authorship authority.
  */
 function vizzex_sa_auto_section_wrapper( $content ) {
     // 1. Don't run in the admin area.
@@ -282,7 +543,12 @@ function vizzex_sa_auto_section_wrapper( $content ) {
         return $content;
     }
 
-    // 4. Split the content at every H2–H6 tag.
+    // 4. Auto-wrap bare <img> tags in <figure>/<figcaption> (if enabled).
+    if ( vizzex_sa_feature_enabled( 'figure_wrap' ) ) {
+        $content = vizzex_sa_auto_figure_wrap( $content );
+    }
+
+    // 5. Split the content at every H2–H6 tag.
     $parts = preg_split(
         '/(<h[2-6][^>]*>.*?<\/h[2-6]>)/is',
         $content,
@@ -325,10 +591,25 @@ function vizzex_sa_auto_section_wrapper( $content ) {
         $new_content .= "\n</section>";
     }
 
-    // 5. Wrap the entire content in an <article> tag — the "Global Envelope."
-    // This provides a hard boundary telling AI crawlers: "This is the complete,
-    // self-contained Knowledge Object. Ignore everything outside this tag."
-    $new_content = '<article class="vizzex-knowledge-object">' . "\n" . $new_content . "\n" . '</article>';
+    // 6. Build the "Global Envelope" — <article> with optional header and footer.
+    $article  = '<article class="vizzex-knowledge-object">' . "\n";
+
+    // 6a. Freshness signals — <header> with <time> tags.
+    if ( vizzex_sa_feature_enabled( 'header_time' ) ) {
+        $article .= vizzex_sa_build_header_time();
+    }
+
+    // 6b. The sectioned content.
+    $article .= $new_content . "\n";
+
+    // 6c. Author E-E-A-T footer.
+    if ( vizzex_sa_feature_enabled( 'footer_eeat' ) ) {
+        $article .= vizzex_sa_build_footer_eeat();
+    }
+
+    $article .= '</article>';
+
+    $new_content = $article;
 
     return $new_content;
 }
@@ -337,7 +618,7 @@ add_filter( 'the_content', 'vizzex_sa_auto_section_wrapper', 99 );
 
 /**
  * ============================================================
- * 6. SETTINGS LINK on the Plugins page
+ * 7. SETTINGS LINK on the Plugins page
  * ============================================================
  */
 function vizzex_sa_plugin_action_links( $links ) {
@@ -350,7 +631,7 @@ add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), 'vizzex_sa_plu
 
 /**
  * ============================================================
- * 7. GUTENBERG / BLOCK EDITOR COMPATIBILITY
+ * 8. GUTENBERG / BLOCK EDITOR COMPATIBILITY
  *    Show the metabox in the block editor sidebar via a
  *    simple plugin sidebar isn't needed — WordPress renders
  *    PHP metaboxes in the block editor automatically.
