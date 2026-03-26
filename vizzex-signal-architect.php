@@ -248,12 +248,17 @@ add_action( 'save_post', 'vizzex_sa_save_meta' );
  * 5. THE AUTO-SECTIONER — The core content filter
  * ============================================================
  *
- * Strategy: "Flat Sibling" approach.
- * Every H2–H6 starts a new <section> at the same nesting level.
- * This keeps the markup flat and prevents a "closing tag waterfall."
- * Each section gets:
- *   - aria-label  = the heading text (stripped of inner HTML)
- *   - class       = "semantic-unit unit-h{level}"
+ * Strategy: "Flat Sibling" approach with a "Global Envelope."
+ *
+ * 1. The entire post is wrapped in an <article class="vizzex-knowledge-object">
+ *    tag — the hard boundary that tells AI crawlers this is a complete,
+ *    self-contained Knowledge Object.
+ *
+ * 2. Every H2–H6 starts a new <section> at the same nesting level.
+ *    This keeps the markup flat and prevents a "closing tag waterfall."
+ *    Each section gets:
+ *      - aria-label  = the heading text (stripped of inner HTML)
+ *      - class       = "semantic-unit unit-h{level}"
  */
 function vizzex_sa_auto_section_wrapper( $content ) {
     // 1. Don't run in the admin area.
@@ -319,6 +324,11 @@ function vizzex_sa_auto_section_wrapper( $content ) {
     if ( $section_open ) {
         $new_content .= "\n</section>";
     }
+
+    // 5. Wrap the entire content in an <article> tag — the "Global Envelope."
+    // This provides a hard boundary telling AI crawlers: "This is the complete,
+    // self-contained Knowledge Object. Ignore everything outside this tag."
+    $new_content = '<article class="vizzex-knowledge-object">' . "\n" . $new_content . "\n" . '</article>';
 
     return $new_content;
 }
