@@ -38,9 +38,9 @@ function vizzex_sa_activate() {
     // Default feature toggles — all on by default.
     if ( false === get_option( VIZZEX_SA_OPTION_FEATURES ) ) {
         update_option( VIZZEX_SA_OPTION_FEATURES, array(
-            'header_time'   => '1', // <header> with <time> freshness signals
-            'footer_eeat'   => '1', // <footer> with author E-E-A-T
-            'figure_wrap'   => '1', // Auto-wrap bare <img> in <figure>/<figcaption>
+            'header_time'     => '1', // <header> with <time> freshness signals
+            'footer_eeat'     => '1', // <footer> with author E-E-A-T
+            'figure_wrap'     => '1', // Auto-wrap bare <img> in <figure>/<figcaption>
             'aside_shortcode' => '1', // [aside] shortcode
         ) );
     }
@@ -360,19 +360,11 @@ function vizzex_sa_feature_enabled( $feature_key ) {
  * Placed at the top of the <article> envelope.
  */
 function vizzex_sa_build_header_time() {
-    $pub_iso      = get_the_date( 'c' );
-    $pub_display  = get_the_date();
-    $mod_iso      = get_the_modified_date( 'c' );
-    $mod_display  = get_the_modified_date();
+    $mod_iso     = get_the_modified_date( 'c' );
+    $mod_display = get_the_modified_date();
 
     $header  = '<header class="vizzex-freshness-signals">' . "\n";
-    $header .= '  <time datetime="' . esc_attr( $pub_iso ) . '" itemprop="datePublished">Published: ' . esc_html( $pub_display ) . '</time>' . "\n";
-
-    // Only show modified date if it differs from published date.
-    if ( get_the_date( 'Y-m-d' ) !== get_the_modified_date( 'Y-m-d' ) ) {
-        $header .= '  <time datetime="' . esc_attr( $mod_iso ) . '" itemprop="dateModified">Updated: ' . esc_html( $mod_display ) . '</time>' . "\n";
-    }
-
+    $header .= '  <time datetime="' . esc_attr( $mod_iso ) . '" itemprop="dateModified">Last Verified ' . esc_html( $mod_display ) . '</time>' . "\n";
     $header .= '</header>' . "\n";
 
     return $header;
